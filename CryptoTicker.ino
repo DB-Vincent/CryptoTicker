@@ -24,7 +24,6 @@ struct coinStruct {
   double dayChange;
   unsigned long updatedAt;
   double chartData[25];
-  unsigned long chartUpdatedAt;
 };
 
 
@@ -81,7 +80,7 @@ void loop() {
   }
 
   if (displayGraph == true) {
-    getCoinChartData();
+    updateCharts();
     displayChartData(); 
   } else {
     updateStats();
