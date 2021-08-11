@@ -48,9 +48,9 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define AMOUNT_OF_COINS 3
 
 coinStruct coinList[AMOUNT_OF_COINS] = {
-  {"bitcoin", 0, 0, 0, 0, 0},  
-  {"ethereum", 0, 0, 0, 0, 0},
-  {"cardano", 0, 0, 0, 0, 0},
+  {"bitcoin", 0, 0, 0, 0},  
+  {"ethereum", 0, 0, 0, 0},
+  {"cardano", 0, 0, 0, 0},
 };
 
 int curCoin = 0;
@@ -293,6 +293,19 @@ double getMin(double inputArray[]) {
 
 
 /*
+ * Small helper function for printing a string in the center of the screen
+ */
+void printCenterString(const String &buf, int x, int y) {
+  int16_t  x1, y1;
+  uint16_t w, h;
+
+  display.getTextBounds(buf, x, y, &x1, &y1, &w, &h);
+  display.setCursor((x - w) / 2, y);
+  display.print(buf);
+}
+
+
+/*
  * Retrieve pricing of specific coin from Coingecko API
  */
 coinStat getCoinStats(String coin) {
@@ -340,19 +353,6 @@ void updateStats() {
 
 
 /*
- * Small helper function for printing a string in the center of the screen
- */
-void printCenterString(const String &buf, int x, int y) {
-  int16_t  x1, y1;
-  uint16_t w, h;
-
-  display.getTextBounds(buf, x, y, &x1, &y1, &w, &h);
-  display.setCursor((x - w) / 2, y);
-  display.print(buf);
-}
-
-
-/*
  * Show pricing and 24h change of current coin.
  */
 void displayStats() {
@@ -369,41 +369,53 @@ void displayStats() {
 /*
  * Get chart data for the current coin
  */
-void getCoinChartData() {
-  if ((millis() - coinList[curCoin].chartUpdatedAt > (3600 * 1000)) || coinList[curCoin].chartUpdatedAt == 0) {
-    String coin = coinList[curCoin].name;
-    
-    std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-    client->setFingerprint(fingerprint);
-    HTTPClient https;
+void getCoinChartData(String coin) {
+  std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
+  client->setFingerprint(fingerprint);
+  HTTPClient https;
+
+  if (https.begin(*client, "https://api.coingecko.com/api/v3/coins/" + coin + "/market_chart?vs_currency=eur&days=1&interval=hourly")) {
+    int httpCode = https.GET();
   
-    if (https.begin(*client, "https://api.coingecko.com/api/v3/coins/" + coin + "/market_chart?vs_currency=eur&days=1&interval=hourly")) {
-      int httpCode = https.GET();
-    
-      if (httpCode > 0) {
-        String payload = https.getString();
-        int cutFrom = payload.indexOf(",\"market_caps\"");
-  
-        String fixedPayload = payload.substring(0,cutFrom);
-        fixedPayload += "}";
-        
-        DynamicJsonDocument doc(1536);
-        DeserializationError error = deserializeJson(doc, fixedPayload);
-  
-        https.end();
-  
-        JsonArray prices = doc["prices"];
-  
-        for (int i = 0; i < 25; i++) {
-          coinList[curCoin].chartData[i] = prices[i][1];
-        }
+    if (httpCode > 0) {
+      String payload = https.getString();
+      int cutFrom = payload.indexOf(",\"market_caps\"");
+
+      String fixedPayload = payload.substring(0,cutFrom);
+      fixedPayload += "}";
+      
+      DynamicJsonDocument doc(1536);
+      DeserializationError error = deserializeJson(doc, fixedPayload);
+
+      https.end();
+
+      JsonArray prices = doc["prices"];
+
+      int item = 0;
+      for (int i = 0; i < AMOUNT_OF_COINS; i++) {
+        if ((String)coinList[i].name == coin) item = i;
+      }
+
+      for (int i = 0; i < 25; i++) {
+        coinList[item].chartData[i] = prices[i][1];
       }
     }
-
-    coinList[curCoin].chartUpdatedAt = millis();
   }
 }
 
+
+/*
+ * Used for updating the chart every hour
+ */
+void updateCharts() {
+  if ((millis() - lastChartUpdate > (3600 * 1000)) || lastChartUpdate == 0) {
+    for (int i = 0; i < AMOUNT_OF_COINS; i++) {
+      getCoinChartData(coinList[i].name);
+    }
+
+    lastChartUpdate = millis();
+  }
+}
 
 /*
  * Show chart for current coin
