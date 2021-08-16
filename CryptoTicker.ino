@@ -1,6 +1,6 @@
 #include "icons.h"
 
-#define BTN 14 // Button used for menu
+#define BTN 2 // Button used for menu
 #define CAROUSEL_INTERVAL 20 // in seconds
 
 long buttonTimer = 0;
