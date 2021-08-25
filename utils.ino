@@ -45,13 +45,24 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
  * Variables
  */
 #define UPDATE_INTERVAL 15 // in seconds
-#define AMOUNT_OF_COINS 3
 
-coinStruct coinList[AMOUNT_OF_COINS] = {
+coinStruct coinList[10] = {
   {"bitcoin", 0, 0, 0, 0},  
   {"ethereum", 0, 0, 0, 0},
+  {"tether", 0, 0, 0, 0},
   {"cardano", 0, 0, 0, 0},
+  {"ripple", 0, 0, 0, 0},
+  {"dogecoin", 0, 0, 0, 0},  
+  {"polkadot", 0, 0, 0, 0},
+  {"usd-coin", 0, 0, 0, 0},
+  {"bitcoin-cash", 0, 0, 0, 0},
+  {"matic-network", 0, 0, 0, 0},
 };
+
+coinStruct configuredCoinList[5];
+
+int amountOfCoins = 0;
+String configuredCoins[5];
 
 int curCoin = 0;
 long lastStatUpdate = 0;
@@ -66,6 +77,25 @@ const char* ssid = "text";
 const char* passphrase = "text";
 String st;
 String content;
+
+template <class T> int EEPROM_writeAnything(int ee, const T& value)
+{
+    const byte* p = (const byte*)(const void*)&value;
+    unsigned int i;
+    for (i = 0; i < sizeof(value); i++)
+          EEPROM.write(ee++, *p++);
+    return i;
+}
+
+template <class T> int EEPROM_readAnything(int ee, T& value)
+{
+    byte* p = (byte*)(void*)&value;
+    unsigned int i;
+    for (i = 0; i < sizeof(value); i++)
+          *p++ = EEPROM.read(ee++);
+    return i;
+}
+
 
 /*
  * Initialize display
@@ -143,10 +173,12 @@ void createWebServer() {
     server.on("/", []() {
       IPAddress ip = WiFi.softAPIP();
       String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
-      content = "<!DOCTYPE HTML>\r\n<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>Hello from CryptoTicker at ";
-      content += ipStr;
-      content += "<form method='get' action='setting'><label>SSID: </label><input name='ssid' length=32></br><label>Pass: </label><input name='pass' length=64><br><input type='submit'></form>";
-      content += "</body></html>";
+      content = "<!DOCTYPE HTML>\r\n<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>CryptoTicker initial configuration";
+      content += "<form method='get' action='setting'><h1>WiFi</h1><br><label>SSID: </label><input name='ssid' length=32></br><label>Pass: </label><input name='pass' length=64><br><h1>Cryptocurrencies</h1>";
+      for (int i = 0; i < 10; i++) {
+        content += "<br><input type='checkbox' id='" + coinList[i].name + "' name='" + coinList[i].name + "' value='" + coinList[i].name + "'><label for='" + coinList[i].name + "'>" + coinList[i].name + "</label>";
+      }
+      content += "<br><input type='submit'></form></body></html>";
       server.send(200, "text/html", content);
     });
     
@@ -154,7 +186,7 @@ void createWebServer() {
       String qsid = server.arg("ssid");
       String qpass = server.arg("pass");
 
-      if (qsid.length() > 0 && qpass.length() > 0) {
+      if (qsid.length() > 0 && qpass.length() > 0 && (server.hasArg("bitcoin") || server.hasArg("ethereum") || server.hasArg("tether") || server.hasArg("cardano") || server.hasArg("ripple") || server.hasArg("dogecoin") || server.hasArg("polkadot") || server.hasArg("usd-coin") || server.hasArg("bitocin-cash") || server.hasArg("matic-network"))) {
         for (int i = 0; i < 96; ++i) {
           EEPROM.write(i, 0);
         }
@@ -166,6 +198,66 @@ void createWebServer() {
         for (int i = 0; i < qpass.length(); ++i) {
           EEPROM.write(32 + i, qpass[i]);
         }
+
+        if (server.hasArg("bitcoin")) {
+          configuredCoins[amountOfCoins] = "bitcoin";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("ethereum")) {
+          configuredCoins[amountOfCoins] = "ethereum";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("tether")) {
+          configuredCoins[amountOfCoins] = "tether";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("cardano")) {
+          configuredCoins[amountOfCoins] = "cardano";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("ripple")) {
+          configuredCoins[amountOfCoins] = "ripple";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("dogecoin")) {
+          configuredCoins[amountOfCoins] = "dogecoin";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("polkadot")) {
+          configuredCoins[amountOfCoins] = "polkadot";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("usd-coin")) {
+          configuredCoins[amountOfCoins] = "usd-coin";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("bitcoin-cash")) {
+          configuredCoins[amountOfCoins] = "bitcoin-cash";
+          amountOfCoins++;
+        }
+
+        if (server.hasArg("matic-network")) {
+          configuredCoins[amountOfCoins] = "matic-network";
+          amountOfCoins++;
+        }
+
+        if (sizeof(configuredCoins) > 3) {
+          content = "{\"Error\":\"Only maximum 3 coins currently supported.\"}";
+          statusCode = 500;
+          Serial.println("Sending 404");
+        }
+
+        EEPROM_writeAnything(100, amountOfCoins);
+        EEPROM_writeAnything(116, configuredCoins);
+        
         EEPROM.commit();
  
         content = "{\"Success\":\"saved to eeprom... reset to boot into new wifi\"}";
@@ -189,7 +281,7 @@ void createWebServer() {
  * If no WiFi is configured, show initial configuration
  * If WiFi is configured, connect to WiFi.
  */
-void connectWifi() {
+void initialConfig() {
   EEPROM.begin(512);
 
   WiFi.disconnect();
@@ -211,6 +303,20 @@ void connectWifi() {
     WiFi.softAPdisconnect(true);
     display.println("Succesfully connected to " + ssid);
     display.display();
+  
+    EEPROM_readAnything(100, amountOfCoins);
+    EEPROM_readAnything(116, configuredCoins);
+
+    Serial.println(configuredCoins[2]);
+
+    for (int i = 0; i < amountOfCoins; i++) {
+      for (int j = 0; j < 10; j++) {
+        if (coinList[j].name == configuredCoins[i]) {
+          configuredCoinList[i] = coinList[j];
+        }
+      }
+    }
+
     return;
   } else {
     IPAddress ip = WiFi.softAPIP();
@@ -221,7 +327,6 @@ void connectWifi() {
     launchWeb();
     setupAP();// Setup HotSpot
   }
-  
 
   while ((WiFi.status() != WL_CONNECTED)) {
     server.handleClient();
@@ -340,11 +445,11 @@ coinStat getCoinStats(String coin) {
  */
 void updateStats() {
   if ((millis() - lastStatUpdate > (UPDATE_INTERVAL * 1000)) || lastStatUpdate == 0) {
-    for (int i = 0; i < AMOUNT_OF_COINS; i++) {
-      coinStat curCoinStat = getCoinStats(coinList[i].name);
-      coinList[i].price = curCoinStat.price;
-      coinList[i].dayChange = curCoinStat.dayChange;
-      coinList[i].updatedAt = curCoinStat.updatedAt;
+    for (int i = 0; i < amountOfCoins; i++) {
+      coinStat curCoinStat = getCoinStats(configuredCoinList[i].name);
+      configuredCoinList[i].price = curCoinStat.price;
+      configuredCoinList[i].dayChange = curCoinStat.dayChange;
+      configuredCoinList[i].updatedAt = curCoinStat.updatedAt;
     }
 
     lastStatUpdate = millis();
@@ -357,11 +462,11 @@ void updateStats() {
  */
 void displayStats() {
   display.clearDisplay();
-  displayIcon(coinList[curCoin].name);
+  displayIcon(configuredCoinList[curCoin].name);
   display.setFont(&FreeSans9pt7b);
-  printCenterString((String)coinList[curCoin].price + "EUR", 128, 52);
+  printCenterString((String)configuredCoinList[curCoin].price + "EUR", 128, 52);
   display.setFont();
-  printCenterString((String)coinList[curCoin].dayChange + "%", 128, 55);
+  printCenterString((String)configuredCoinList[curCoin].dayChange + "%", 128, 55);
   display.display();
 }
 
@@ -392,12 +497,12 @@ void getCoinChartData(String coin) {
       JsonArray prices = doc["prices"];
 
       int item = 0;
-      for (int i = 0; i < AMOUNT_OF_COINS; i++) {
-        if ((String)coinList[i].name == coin) item = i;
+      for (int i = 0; i < amountOfCoins; i++) {
+        if ((String)configuredCoinList[i].name == coin) item = i;
       }
 
       for (int i = 0; i < 25; i++) {
-        coinList[item].chartData[i] = prices[i][1];
+        configuredCoinList[item].chartData[i] = prices[i][1];
       }
     }
   }
@@ -409,8 +514,8 @@ void getCoinChartData(String coin) {
  */
 void updateCharts() {
   if ((millis() - lastChartUpdate > (3600 * 1000)) || lastChartUpdate == 0) {
-    for (int i = 0; i < AMOUNT_OF_COINS; i++) {
-      getCoinChartData(coinList[i].name);
+    for (int i = 0; i < amountOfCoins; i++) {
+      getCoinChartData(configuredCoinList[i].name);
     }
 
     lastChartUpdate = millis();
@@ -421,8 +526,8 @@ void updateCharts() {
  * Show chart for current coin
  */
 void displayChartData() {
-  double minValue = getMin(coinList[curCoin].chartData);
-  double maxValue = getMax(coinList[curCoin].chartData);
+  double minValue = getMin(configuredCoinList[curCoin].chartData);
+  double maxValue = getMax(configuredCoinList[curCoin].chartData);
 
   int x0 = 0;
   int x1 = 0;
@@ -430,9 +535,9 @@ void displayChartData() {
   int y1 = 0;
 
   display.clearDisplay(); 
-  displayIcon(coinList[curCoin].name); 
+  displayIcon(configuredCoinList[curCoin].name); 
   for (int i = 0; i < 25; i++) {
-    double temp = (30 - (((coinList[curCoin].chartData[i] - minValue) / (maxValue - minValue)) * 30)) + 33;
+    double temp = (30 - (((configuredCoinList[curCoin].chartData[i] - minValue) / (maxValue - minValue)) * 30)) + 33;
 
     if (i == 0) {
       x0 = 0;
@@ -464,8 +569,22 @@ void displayIcon(String coin) {
     display.drawBitmap((display.width()  - 20 ) / 2, 8,  bitcoin, 20, 20, 1);
   } else if (coin == "ethereum") {
     display.drawBitmap((display.width()  - 20 ) / 2, 8, ethereum, 13, 20, 1);
+  } else if (coin == "tether") {
+    display.drawBitmap((display.width()  - 20 ) / 2, 8, tether, 23, 20, 1);
   } else if (coin == "cardano") {
     display.drawBitmap((display.width()  - 20 ) / 2, 8, cardano, 22, 20, 1);
+  } else if (coin == "ripple") {
+    display.drawBitmap((display.width()  - 20 ) / 2, 8, ripple, 24, 20, 1);
+  } else if (coin == "dogecoin") {
+    display.drawBitmap((display.width()  - 20 ) / 2, 8, doge, 20, 20, 1);
+  } else if (coin == "polkadot") {
+    display.drawBitmap((display.width()  - 20 ) / 2, 8, polkadot, 15, 20, 1);
+  } else if (coin == "usd-coin") {
+    display.drawBitmap((display.width()  - 20 ) / 2, 8, usdcoin, 20, 20, 1);
+  } else if (coin == "bitcoin-cash") {
+    display.drawBitmap((display.width()  - 20 ) / 2, 8, bitcoinCash, 32, 20, 1);
+  } else if (coin == "matic-network") {
+    display.drawBitmap((display.width()  - 20 ) / 2, 8, matic, 23, 20, 1);
   }
 }
 
@@ -474,7 +593,7 @@ void displayIcon(String coin) {
  * Goes to next coin, used for both the short button press and the carousel.
  */
 void nextCoin() {
-  int maxCoins = AMOUNT_OF_COINS - 1;
+  int maxCoins = amountOfCoins - 1;
 
   if (curCoin == maxCoins) {
     curCoin = 0;

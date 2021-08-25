@@ -19,7 +19,7 @@ struct coinStat {
 };
 
 struct coinStruct {
-  char name[16];
+  String name;
   double price;
   double dayChange;
   unsigned long updatedAt;
@@ -33,7 +33,7 @@ void setup() {
   pinMode(BTN, INPUT_PULLUP);
   
   initializeDisplay();
-  connectWifi();
+  initialConfig();
   setupOTA();
 
   delay(500);
